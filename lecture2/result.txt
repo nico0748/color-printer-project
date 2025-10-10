@@ -1,0 +1,6 @@
+no_rev_result.ppm -> MSE: 13062.30
+rev_result.ppm -> MSE: 4892.11
+rev_result2.ppm -> MSE: 5399.74
+rev_result3.ppm -> MSE: 4273.48
+rev_result4.ppm -> MSE: 5398.67
+
