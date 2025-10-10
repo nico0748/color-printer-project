@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include "model_parameters.h"
+#include "./model_parameters.h"
 
 // RGB点灯遅延
 #define RgbFlashDelay 10 
