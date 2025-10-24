@@ -1,0 +1,83 @@
+\documentclass[uplatex,dvipdfmx]{jsarticle}
+
+\usepackage[uplatex,deluxe]{otf} % UTF
+\usepackage[noalphabet]{pxchfon} % must be after otf package
+\usepackage{stix2} %欧文＆数式フォント
+\usepackage[fleqn,tbtags]{mathtools} % 数式関連 (w/ amsmath)
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{hira-stix} % ヒラギノフォント＆STIX2 フォント代替定義（Warning回避）
+\usepackage{titlesec} % セクションのフォント変更用
+\usepackage{listings} 
+\usepackage{url}
+\lstset{
+basicstyle={\ttfamily}, 
+identifierstyle={\small}, 
+commentstyle={\smallitshape}, 
+keywordstyle={\small\bfseries},  
+ndkeywordstyle={\small},  
+stringstyle={\small\ttfamily},  
+frame={tb},  breaklines=true,  
+columns=[l]{fullflexible},  
+numbers=left,  xrightmargin=0zw,  xleftmargin=3zw,  
+numberstyle={\scriptsize},  stepnumber=1, 
+numbersep=1zw,  lineskip=-0.5ex
+}
+
+\titleformat*{\section}{\rmfamily\mcfamily\Large} % \sectionのフォントを明朝体に設定
+\titleformat*{\subsection}{\rmfamily\mcfamily\Large} 
+\titleformat*{\subsubsection}{\rmfamily\mcfamily\Large} 
+
+\begin{document}
+
+\title{アジャイルワーク2 実験計画書}
+\author{24G1122 細澤悠真}
+\date{2025年10月17日}
+\maketitle
+\rmfamily\mcfamily % 明朝体
+
+\section{実験目的}
+%データ圧縮がなぜ必要なのか
+本授業では、Aruduinoを用いた、カラーセンサによる色検出システムの精度を向上させることを目的としていた。そこで、センサから取得したRGB値を整形して、ニューラルネットワークに入力して、色検出の精度が向上するように、重みづけとバイアスを調整できるようにした。
+そこで、より色検出の精度を向上させるために、ニューラルネットワークの隠れ層を増やすことにした。隠れ層を増やすことで、より複雑なパターンを学習できるようになり、色検出の精度が向上することが期待される。
+しかし、隠れ層を増加に伴って、使用するメモリ量が増加するため、Aruduinoの実行メモリを超過してしまうことがわかった。そこで、本実験では、ニューラルネットワークの隠れ層の数を増やしつつ、Aruduinoの実行メモリを超過しないようにするために、データ圧縮方式を適用する必要がある。
+\section{実験の理論}
+%どのような方式を適用するのかを調査・選択し記載
+%確定できない場合は、複数の方式を比較検討して記載
+\subsection{プルーニングと圧縮} %プルーニング…0に近似する
+L1正規化の際に、0に近い閾値を設定し、出力された重みが閾値以下の場合は0に置き換える.
+そして、スパース行列を用いて、非ゼロの要素のみを保持することによって、メモリの使用量を削減する。非ゼロ要素は、元々の行列のインデックスと値をペアで保存する形式（COO形式）とCOO形式よりもデータサイズが小さく、行の境界が分かりやすくなるよう圧縮された形式(CSR形式)によって、保持し、圧縮する。これは0以外の要素が減少するほど有効である。
+
+%現在の重みとバイアスはfloat型（32bit）で保存されている。
+%これを16bit固定小数点に量子化することで、メモリ使用量を50%削減することができる。
+%また、8bit量子化を行うことで、メモリの使用量を75%削減することができる。    
+\section{実験方法}
+%プログラムの実装、性能確認方法
+%複数の方式を試す場合、方式の選択基準
+%閾値に関しては近い実験を参考にして選定、またはメモリ削減量の目標から逆算して、閾値を決定する。
+\subsection{実験手順}
+1. 隠れ層の数を40層から60層の範囲で任意の値を指定し、メモリ最適化を適用する前のニューラルネットワークモデルを構築して、その学習モデルを用いて、色検出を行う。\par
+2. プルーニングと圧縮を適用するための閾値を設定する。閾値は、近い実験を参考にして選定するか、メモリ削減量の目標から逆算して決定する。\par
+3. 隠れ層の数を40層から60層の範囲で指定し、プルーニングと圧縮を適用したニューラルネットワークモデルを構築して、その学習モデルを用いて、色検出を行う。\par
+4. 各実験ごとに、色検出の精度、Aruduino実行メモリ使用量を計測し、プルーニングと圧縮を適用した場合と適用していない場合で、色検出の精度とメモリ使用量の差を比較する。\par
+\subsection{プログラムの実装}
+\subsubsection{L1正規化による学習}
+既存の $train_L1_normalization.ipynb$ を使い、モデルを float で学習する。L1正則化（重みの絶対値の和にペナルティ）により、多くの重みが小さくなり、プルーニングが効きやすくする。
+出力は$model_parameters.h$に出力する。
+\subsubsection{プルーニング}
+任意の閾値を設定して、その値以下の重みを 0 にしてスパース化する。
+閾値の決め方は同様にニューラルネットワークでプルーニングしている論文の値を参照して、設定する。最終的には「メモリ削減量」と「精度低下」をトレードオフして決める。
+出力は$W_pruned.npy、b_pruned.npy$。
+\subsubsection{CSR形式への変換}
+プルーニング後の重み行列とバイアスをCSR形式に変換する。プログラムで実装する方法については未定
+\subsubsection{Arduino用のヘッダファイルに自動変換}
+Pythonスクリプトで、すべてのレイヤの CSR（量子化済み）配列とスケール、行サイズなどをCスタイルで出力します。PROGMEM を使って Flash に置くようにする。
+\subsection{性能確認方法}
+%精度、メモリ使用量、処理速度など
+\subsubsection{精度の性能確認}
+隠れ層の数を40層から60層の範囲で指定し、プルーニングと圧縮を適用した場合と適用していない場合で、色検出の精度を比較する。精度は、PPM形式の正解画像と検出結果画像のMSE（平均二乗誤差）によって評価する。
+\subsubsection{メモリ使用量の性能確認}
+各実験ごとに、Aruduino実行メモリ使用量を計測し、プルーニングと圧縮を適用した場合と適用していない場合で、メモリ使用量の差を比較する。測定方法は、Arduino IDEの「環境設定」で「コンパイル」の出力を詳細表示に設定し、コンパイル後に表示されるメッセージからフラッシュメモリ（プログラムコード）とRAM（変数など）の使用量を読み取ることで行う。
+\end{document}
+
+% 
