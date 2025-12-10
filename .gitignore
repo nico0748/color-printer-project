@@ -1,2 +1,4 @@
 *.pdf
-
+*.dvi
+*.synctex.gz
+*.pptx

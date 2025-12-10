@@ -1,0 +1,203 @@
+\documentclass[uplatex,dvipdfmx]{jsarticle}
+
+\usepackage[uplatex,deluxe]{otf} % UTF
+\usepackage[noalphabet]{pxchfon} % must be after otf package
+\usepackage{stix2} %欧文＆数式フォント
+\usepackage[fleqn,tbtags]{mathtools} % 数式関連 (w/ amsmath)
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{hira-stix} % ヒラギノフォント＆STIX2 フォント代替定義（Warning回避）
+\usepackage{titlesec} % セクションのフォント変更用
+\usepackage{listings} 
+\usepackage{url}
+\lstset{
+basicstyle={\ttfamily}, 
+identifierstyle={\small}, 
+commentstyle={\smallitshape}, 
+keywordstyle={\small\bfseries},  
+ndkeywordstyle={\small},  
+stringstyle={\small\ttfamily},  
+frame={tb},  breaklines=true,  
+columns=[l]{fullflexible},  
+numbers=left,  xrightmargin=0zw,  xleftmargin=3zw,  
+numberstyle={\scriptsize},  stepnumber=1, 
+numbersep=1zw,  lineskip=-0.5ex
+}
+
+\titleformat*{\section}{\rmfamily\mcfamily\Large} % \sectionのフォントを明朝体に設定
+\titleformat*{\subsection}{\rmfamily\mcfamily\Large} 
+\titleformat*{\subsubsection}{\rmfamily\mcfamily\Large} 
+
+\begin{document}
+\begin{titlepage}
+\vspace*{2cm}
+\centering
+\Huge\textsf{アジャイルワーク2 最終報告書}\\[1.5cm]
+\Large\textsf{情報工学科 2年}\\
+\Large\textsf{24G1122}\\[5pt]
+\huge\textsf{細澤 悠真}
+
+\vspace*{1cm}
+\Large\sffamily
+
+\vspace*{2cm}
+\Large\textsf{\today}
+\end{titlepage}
+\newpage
+\section{実験目的}
+本実験では、Arduinoを用いたカラーセンサによる色検出システムの精度を向上させることを目的としていた。
+そこで、センサから取得したRGB値を整形して、ニューラルネットワークに入力して、色検出の精度が向上するように、重み付けとバイアスを出力するようにした。
+ここで、より色検出の精度を向上させるために、ニューラルネットワークの隠れ層におけるユニット数を増やすことにした。隠れ層のユニット数を増やすことで、より複雑かつ多大なパターンを
+学習することができるようになり、色検出の精度が向上することが期待される。しかし、ユニット数の増加に伴って、使用するメモリ量は増加するため、
+Arduinoの実行メモリを超過をしてしまうことが明らかになった。
+本実験では、ニューラルネットワークの隠れ層のユニット数を増やしつつ、Arduinoの実行メモリを超過しないようにするために、重み付けとバイアスのデータを圧縮する方式を適用させる必要がある。
+
+\section{実験の理論}
+\subsection{プルーニングと圧縮}
+L.1正規化の際に、0に近い閾値を設定し、出力された重みパラメータが閾値以下の場合、そのパラメータを0に置き換える。この操作をプルーニングとよぶ。
+そして、プルーニングによって、生成された疎行列（スパース行列）を用いて、非ゼロ要素のみを保持することによって、メモリの使用量を削減する。
+非ゼロ要素は、元々の行列における行のポインタと列のインデックス、値のペアで保存するCSR形式によって、影響を与える値を保持し、圧縮する。
+これは非ゼロ要素が減少するほど、有効性を発揮する。
+
+\section{実験方法}
+本実験では、メモリ圧縮方式を適用させることによって、ニューラルネットワークにおける隠れ層のユニット数を増やし、カラーセンサの色検出精度、すなわち取得した画像と取得元の画像間のMSE(平均二乗誤差)の向上が確認できれば、
+実験方法の有効性を確認できる。
+\subsection{実験手順}
+本実験では、プルーニングによるデータ圧縮方式を適用させたものと適用させていないもののMSEを比較する。
+\subsubsection{初期条件の準備}
+プルーニングによるデータ圧縮方式を適用させたケースと適用させていないケースのそれぞれのMSEを比較するので、初期条件となるmodel-parameter.hを同一のものを使用する必要がある。
+そのため、それぞれのケースで実験を行う際に、環境変数を学習済みのmodel-parameters.hを共通して使用する。また、プルーニングを実施する際に、閾値を設定する必要がある。
+今回は重みとバイアスのそれぞれに閾値を設定することができるようにしたので、2つの閾値を設定する。
+\subsubsection{カラーセンサを用いて測定}
+プルーニングによるデータ圧縮方式を適用させたケースと適用させていないケースのそれぞれで、$3\times3$ / $6\times6$の画像のRGB値を測定する。その際に、圧縮方式を適用させた方では、隠れ層のユニット数を80、
+適用させてない方では、ユニット数を40とする。また、ブルーミングによる圧縮方式を用いて測定する際に、隠れ層のユニット数を80に設定した状態で実行メモリ不足となった際は、閾値を再度設定する。
+\subsubsection{測定後の重みとバイアスを生成}
+それぞれのケースで、測定して得られたRGB値のデータを$train-L1-normalization.ipynb$に入力して、測定値由来の$model-parameters.h$を生成する。
+プルーニングによるデータ圧縮方式を適用させたケースの方では、測定値由来の$model-parameters.h$をCSR形式に変換し、データ圧縮を行い、$model-parameters-csr.h$として出力する。
+\subsubsection{測定値由来のmodel-parameterを用いて測定}
+それぞれのケースで、測定値由来の$model-parameters-csr.h$, $model-parameters.h$を用いて、$3\times3$ / $6\times6$の画像のRGB値を測定する。その際に、圧縮方式を適用させた方では、隠れ層のユニット数を80、
+適用させてない方では、ユニット数を40とする。また、この際にメモリ使用量やpredict関数の実行時間を測定する。
+\subsubsection{測定値からPPMフォーマットの画像を生成}
+それぞれのケースで、測定した$3\times3$の画像のRGB値からPPMフォーマットの画像を生成する。
+\subsubsection{出力したPPMフォーマットの画像のMSEを算出・比較}
+それぞれのケースで、出力したPPMフォーマットの画像と取得元の画像間のMSEを算出する。ここで、プルーニングによるデータ圧縮方式を適用させたケースと適用させていないケースのMSEを比較し、
+本実験の有効性について定量的に評価する。
+\subsubsection{実験の有効性を総合的に評価}
+それぞれのケースで、測定したメモリ使用量・predict関数の実行速度・MSEから定量的に評価を行う。
+また、CSR形式への変換・隠れ層におけるユニット数の増加と実行の可否から定性的に評価を行う。
+
+\subsection{プログラムの実装}
+\subsubsection{L1正規化による学習}
+既存の $train-L1-normalization.ipynb$ を使い、モデルを float型で学習する。L1正則化（重みの絶対値の和にペナルティ）により、多くの重みが小さくなり、プルーニングが効きやすくする。
+出力は$model-parameters.h$に出力する。ここでは、授業で配布されたプログラムをそのまま使用している。
+
+\subsubsection{プルーニング}
+任意の閾値を設定して、その値以下の重みを 0 にすることで、元の重みとバイアス行列をスパース化する。
+閾値の設定方法は、絶対値ベースを基準として、重みの絶対値の分布を調査して、特定の小さな値($10^{-2}$)を閾値とする。最終的には「メモリ削減量」と「精度低下」をトレードオフして決める。\\
+次に、プルーニングのプログラムについて説明する。まず、はじめに、プルーニングを行うには閾値を用意しなければならないため、
+プログラム内で、重み付けとバイアスの閾値をそれぞれ、定数で宣言する。\\
+\begin{lstlisting}[caption=閾値を定数として宣言,label=threshold]
+WEIGHT_THRESHOLD = 1.5e-3
+BIAS_THRESHOLD = 1e-6
+\end{lstlisting}
+宣言された閾値をModelPrameterProcessorクラス内で使用できるように、クラスのインスタンスを初期化する。\\
+\begin{lstlisting}[caption=ModelPrameterProcessorクラスのインスタンスを初期化するプログラム,label=initialize_instance]
+def __init__(self, weight_threshold: float = WEIGHT_THRESHOLD, bias_threshold: float = BIAS_THRESHOLD):
+        self.weight_threshold = weight_threshold
+        self.bias_threshold = bias_threshold
+        self.arrays = {}
+\end{lstlisting}
+次に、CSR形式を適用する対象となるヘッダファイルのパラメータデータを取得し、float型配列から処理しやすいNumpy型配列に変換する。
+\begin{lstlisting}[caption=ヘッダファイルからfloat配列を取得し、Numpy配列に変換するプログラム,label=initialize_instance]
+def __init__(self, weight_threshold: float = WEIGHT_THRESHOLD, bias_threshold: float = BIAS_THRESHOLD):
+        self.weight_threshold = weight_threshold
+        self.bias_threshold = bias_threshold
+        self.arrays = {}
+\end{lstlisting}
+Numpy型配列でパラメータを受け取った後は、元の重み付け配列とパラメータ名を引数として指定し、プルーニング後の配列を返すprune-weight関数を実行する。
+$pruned-weights[np.abs(pruned-weights) < threshold] = 0$
+\begin{lstlisting}[caption=重み付けパラメータに対するプルーニングのプログラム,label=weight_pruned]
+def prune_weights(self, weights: np.ndarray, name: str) -> np.ndarray:
+    threshold = self.get_threshold_for_param(name)
+    pruned_weights = weights.copy()
+    pruned_weights[np.abs(pruned_weights) < threshold] = 0
+    return pruned_weights
+\end{lstlisting}
+
+\subsubsection{CSR形式への変換}
+プルーニング後の重み行列とバイアス行列をCSR形式に変換する。PythonのSciPyライブラリとPytorchライブラリを使用して、Numpy配列からCSR形式に変換する。具体的には、SciPyの`scipy.sparse.csr-matrix`クラスを使用する。また、
+CSR形式のデータには、行ポインタ、列インデックス、値の3つの配列があり、値の配列のみをfloat32を維持して、行ポインタと列インデックスをuint8に変換することで、さらにメモリ使用量を削減する。
+図\ref{fig:csr}にCSR形式の例を示す。
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.95\textwidth]{Pruning+CSR.pdf}
+    \caption{CSR形式の変換手順}
+    \label{fig:csr}
+\end{figure}
+\newpage
+\subsubsection{ヘッダファイルに自動変換}
+Pythonスクリプトで、すべてのレイヤの CSR配列とスケール、行サイズなどをCスタイルで出力します。PROGMEM を使って フラッシュメモリに配置することで、RAM（実行メモリ）の使用量を削減する。
+
+\subsection{性能確認方法}
+%精度、メモリ使用量、処理速度など
+\subsubsection{精度の性能確認}
+プルーニングによる圧縮方式を適用させたケースと適用させていないケースで、色検出の精度を比較する。精度は、PPM形式の正解画像と検出結果画像のMSE（平均二乗誤差）によって評価する。
+判断基準は、元画像と学習後の検出画像のMSEを比較して、学習後の検出画像のMSEの方がより小さい値になっていれば、精度が向上したと判断する。
+異なる二つの画像間のMSEは以下の手順で計算する。\\
+画像間のMSEは各画素のRGB成分の差分を二乗して、その平均を取ることで求められる。
+\begin{enumerate}
+    \item まず、各画素 $(x, y)$ に対して、基準画像および比較画像のRGB値をそれぞれ取得する。
+    \begin{align}
+        R_{xy}^{(\mathrm{ref})},\; G_{xy}^{(\mathrm{ref})},\; B_{xy}^{(\mathrm{ref})} &: \text{基準画像のRGB成分} \\
+        R_{xy}^{(\mathrm{test})},\; G_{xy}^{(\mathrm{test})},\; B_{xy}^{(\mathrm{test})} &: \text{比較画像のRGB成分}
+    \end{align}
+
+    \item 各画素ごとに、RGBの差分を計算する。
+    \begin{align}
+        \Delta R_{xy} &= R_{xy}^{(\mathrm{ref})} - R_{xy}^{(\mathrm{test})} \\
+        \Delta G_{xy} &= G_{xy}^{(\mathrm{ref})} - G_{xy}^{(\mathrm{test})} \\
+        \Delta B_{xy} &= B_{xy}^{(\mathrm{ref})} - B_{xy}^{(\mathrm{test})}
+    \end{align}
+
+    \item 次に、各画素におけるRGB誤差の二乗平均を求める。
+    \begin{align}
+        E_{xy} = \frac{(\Delta R_{xy})^2 + (\Delta G_{xy})^2 + (\Delta B_{xy})^2}{3}
+    \end{align}
+
+    ここで、$E_{xy}$ は画素 $(x, y)$ におけるRGBの平均二乗誤差である。
+
+    \item 最後に、全画素に対して $E_{xy}$ を平均し、画像全体のMSEとする。
+    \begin{align}
+        \mathrm{MSE} 
+        &= \frac{1}{W \times H} 
+        \sum_{x=0}^{W-1} \sum_{y=0}^{H-1} E_{xy} \\
+        &= \frac{1}{W \times H} 
+        \sum_{x=0}^{W-1} \sum_{y=0}^{H-1}
+        \frac{(R_{xy}^{(\mathrm{ref})} - R_{xy}^{(\mathrm{test})})^2 + (G_{xy}^{(\mathrm{ref})} - G_{xy}^{(\mathrm{test})})^2 + (B_{xy}^{(\mathrm{ref})} - B_{xy}^{(\mathrm{test})})^2}{3}
+    \end{align}
+
+    ここで，
+    \begin{itemize}
+        \item $W$：画像の幅（ピクセル数）
+        \item $H$：画像の高さ（ピクセル数）
+    \end{itemize}
+
+\end{enumerate}
+\subsubsection{メモリ使用量の性能確認}
+各実験ごとに、Aruduino実行メモリ使用量を計測し、プルーニングによる圧縮方式を適用させたケースと適用させていないケースで、メモリ使用量の差を比較する。測定方法は、Arduino IDEの「環境設定」で「コンパイル」の出力を詳細表示に設定し、コンパイル後に表示されるメッセージからフラッシュメモリ（プログラムコード）とRAM（変数など）の使用量を読み取ることで行う。
+元々のメモリ使用量では、隠れ層の数が60までしか対応できなかったので、プルーニングと圧縮を適用した結果、隠れ層の数を60層以上に増やしても、Aruduinoの実行メモリを超過しないことを確認できたら、メモリ使用量の削減に成功したと判断する。
+メモリ削減率は以下の式で計算する。\\
+\[
+\text{メモリ削減率} = \frac{\text{元のメモリ使用量} - \text{最適化後のメモリ使用量}}{\text{元のメモリ使用量}} \times 100\%
+\]
+\subsubsection{predict関数の実行速度}
+プログラム上でpredict関数の前後に実行時からの経過時間を測定するmillis()関数を追加し、2つのmillis関数の測定値の差分からpredict関数の実行時間を算出する。
+predict関数の実行時間は以下の式で計算する。\\
+\[
+\text{predict関数の実行時間} = \text{後に追加したmillis関数の測定値} - \text{前に追加したmillis関数の測定値}
+\]
+
+\section{実験結果}
+\subsection{}
+
+\end{document}

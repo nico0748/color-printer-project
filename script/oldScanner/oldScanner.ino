@@ -2,7 +2,7 @@
 #include "./model_parameters.h"
 
 // RGB点灯遅延
-#define RgbFlashDelay 10 
+#define RgbFlashDelay 10
 
 // ピン割り当て
 #define PIN_IN A0
@@ -14,8 +14,8 @@
 
 //ニューラルネットワーク関連
 #define INPUT_SIZE 3
-#define HIDDEN_SIZE1 40
-#define HIDDEN_SIZE2 40
+#define HIDDEN_SIZE1 60
+#define HIDDEN_SIZE2 60
 #define OUTPUT_SIZE 3
 
 // ボタン押下を検知する変数 (余計な最適化を防ぐため、volatile宣言をしている)

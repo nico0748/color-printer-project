@@ -1,7 +1,5 @@
-// CSR形式で圧縮されたニューラルネットワークパラメータ
-// 重み用プルーニング閾値: 0.0015
-// バイアス用プルーニング閾値: 1e-06
-// 自動生成ファイル - 手動編集禁止
+// CSR Neural Network Parameters
+// Weight threshold: 0.0015, Bias threshold: 1e-06
 #ifndef MODEL_PARAMETERS_CSR_H
 #define MODEL_PARAMETERS_CSR_H
 
@@ -13,9 +11,6 @@
 #define CSR_PROGMEM
 #endif
 
-
-// weight_1 - CSR形式
-// 元サイズ: 120, 非ゼロ要素: 73, 圧縮率: 39.2%
 const float weight_1_values[] CSR_PROGMEM = {
     -0.68219560f, -0.50858778f, 0.56946146f, -0.00226676f, 0.64952898f, -1.59537756f, -0.01758291f, 1.53028977f, 
     0.32304755f, 0.00168235f, -0.00181681f, 0.00177281f, 0.00239145f, -0.00330174f, -0.00215769f, 0.00446893f, 
@@ -46,8 +41,6 @@ const int32_t weight_1_indptr[] CSR_PROGMEM = {
     63, 66, 69, 70, 73
 };
 
-// bias_1 - CSR形式
-// 元サイズ: 40, 非ゼロ要素: 40, 圧縮率: 0.0%
 const float bias_1_values[] CSR_PROGMEM = {
     0.46476138f, -0.00562266f, 0.06005341f, -0.48058367f, -0.47286254f, -0.20100871f, -0.25460306f, -0.14265560f, 
     -0.23313260f, -0.27543497f, -0.42305571f, -0.12159453f, 0.30439621f, -0.00286909f, -0.13181970f, 0.35532397f, 
@@ -63,8 +56,6 @@ const int32_t bias_1_indices[] CSR_PROGMEM = {
     36, 37, 38, 39
 };
 
-// weight_2 - CSR形式
-// 元サイズ: 1600, 非ゼロ要素: 517, 圧縮率: 67.7%
 const float weight_2_values[] CSR_PROGMEM = {
     -0.84942955f, -0.00161256f, 1.61574841f, -0.00185139f, -0.00261607f, 0.28490415f, -0.24020198f, -1.06150293f, 
     -0.21269226f, -0.00170827f, 0.00150801f, 0.11022837f, 0.00431078f, 0.64828348f, 0.00177904f, 0.18727803f, 
@@ -187,8 +178,6 @@ const int32_t weight_2_indptr[] CSR_PROGMEM = {
     461, 475, 493, 504, 517
 };
 
-// bias_2 - CSR形式
-// 元サイズ: 40, 非ゼロ要素: 40, 圧縮率: 0.0%
 const float bias_2_values[] CSR_PROGMEM = {
     -0.39445895f, -0.00774770f, -0.14067984f, -0.04337126f, -0.06753292f, -0.12362956f, -0.04233071f, -0.00664610f, 
     -0.14951168f, -0.00675502f, -0.11554569f, -0.01860372f, -0.01753227f, -0.14157945f, 0.09040919f, -0.04518206f, 
@@ -204,8 +193,6 @@ const int32_t bias_2_indices[] CSR_PROGMEM = {
     36, 37, 38, 39
 };
 
-// weight_3 - CSR形式
-// 元サイズ: 120, 非ゼロ要素: 42, 圧縮率: 65.0%
 const float weight_3_values[] CSR_PROGMEM = {
     1.32735646f, -1.58677912f, -0.53519589f, 0.00200171f, -0.65074074f, -0.00201584f, -1.09212971f, -0.00238934f, 
     0.00156150f, -0.03327101f, 0.00264182f, -0.89055431f, 0.11110474f, 0.72513407f, 0.40794015f, 0.00183197f, 
@@ -226,8 +213,6 @@ const int32_t weight_3_indptr[] CSR_PROGMEM = {
     0, 14, 28, 42
 };
 
-// bias_3 - CSR形式
-// 元サイズ: 3, 非ゼロ要素: 3, 圧縮率: 0.0%
 const float bias_3_values[] CSR_PROGMEM = {
     0.60721558f, 0.13240419f, -0.05732125f
 };
@@ -236,7 +221,6 @@ const int32_t bias_3_indices[] CSR_PROGMEM = {
     0, 1, 2
 };
 
-// CSR形式のデータ構造
 typedef struct {
     const float* values;
     const int32_t* indices;
@@ -253,56 +237,33 @@ typedef struct {
     int32_t size;
 } csr_vector_t;
 
-
 const csr_matrix_t weight_1_csr = {
-    weight_1_values,
-    weight_1_indices,
-    weight_1_indptr,
-    73,
-    40,
-    3
+    weight_1_values, weight_1_indices, weight_1_indptr,
+    73, 40, 3
 };
 
 const csr_vector_t bias_1_csr = {
-    bias_1_values,
-    bias_1_indices,
-    40,
-    40
+    bias_1_values, bias_1_indices, 40, 40
 };
 
 const csr_matrix_t weight_2_csr = {
-    weight_2_values,
-    weight_2_indices,
-    weight_2_indptr,
-    517,
-    40,
-    40
+    weight_2_values, weight_2_indices, weight_2_indptr,
+    517, 40, 40
 };
 
 const csr_vector_t bias_2_csr = {
-    bias_2_values,
-    bias_2_indices,
-    40,
-    40
+    bias_2_values, bias_2_indices, 40, 40
 };
 
 const csr_matrix_t weight_3_csr = {
-    weight_3_values,
-    weight_3_indices,
-    weight_3_indptr,
-    42,
-    3,
-    40
+    weight_3_values, weight_3_indices, weight_3_indptr,
+    42, 3, 40
 };
 
 const csr_vector_t bias_3_csr = {
-    bias_3_values,
-    bias_3_indices,
-    3,
-    3
+    bias_3_values, bias_3_indices, 3, 3
 };
 
-// CSR形式から値を取得するヘルパー関数
 #ifdef ARDUINO
 #define READ_PROGMEM_FLOAT(addr) pgm_read_float(addr)
 #define READ_PROGMEM_DWORD(addr) pgm_read_dword(addr)
@@ -311,27 +272,24 @@ const csr_vector_t bias_3_csr = {
 #define READ_PROGMEM_DWORD(addr) (*(addr))
 #endif
 
-// CSR行列から値を取得
 static inline float get_csr_weight(const csr_matrix_t* csr, int row, int col) {
     int32_t start = READ_PROGMEM_DWORD(&csr->indptr[row]);
     int32_t end = READ_PROGMEM_DWORD(&csr->indptr[row + 1]);
-    
     for (int32_t i = start; i < end; i++) {
         if (READ_PROGMEM_DWORD(&csr->indices[i]) == col) {
             return READ_PROGMEM_FLOAT(&csr->values[i]);
         }
     }
-    return 0.0f;  // スパース要素は0
+    return 0.0f;
 }
 
-// CSRベクトルから値を取得
 static inline float get_csr_bias(const csr_vector_t* csr, int index) {
     for (int32_t i = 0; i < csr->nnz; i++) {
         if (READ_PROGMEM_DWORD(&csr->indices[i]) == index) {
             return READ_PROGMEM_FLOAT(&csr->values[i]);
         }
     }
-    return 0.0f;  // スパース要素は0
+    return 0.0f;
 }
 
 #endif // MODEL_PARAMETERS_CSR_H
