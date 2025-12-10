@@ -14,8 +14,8 @@
 
 //ニューラルネットワーク関連（実際の構造に合わせて修正）
 #define INPUT_SIZE 3
-#define HIDDEN_SIZE1 40  // 実際の値に修正
-#define HIDDEN_SIZE2 40  // 実際の値に修正
+#define HIDDEN_SIZE1 80  // 実際の値に修正
+#define HIDDEN_SIZE2 80  // 実際の値に修正
 #define OUTPUT_SIZE 3
 
 // ボタン押下を検知する変数 (余計な最適化を防ぐため、volatile宣言をしている)
