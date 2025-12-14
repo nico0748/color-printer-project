@@ -111,8 +111,11 @@ void readAndProcess(){
      //Serial.println(String(RGBInput[2])+","+String(RGBInput[0])+","+String(RGBInput[1]));    
 
     // ニューラルネットで読み込み値を修正
+    float a = micros();
     predict(RGBInput, RGBOutput);
-
+    float b = micros();
+    float time = b - a;
+    Serial.println(time);
     // predict();が存在しない初期は、値を単純に同値をコピー
     // RGBOutput[0] = RGBInput[0];
     // RGBOutput[1] = RGBInput[1];

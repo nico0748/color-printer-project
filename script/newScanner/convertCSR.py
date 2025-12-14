@@ -3,7 +3,7 @@ import re
 from typing import Dict, Any
 
 # 閾値設定
-WEIGHT_THRESHOLD = 1.5e-3
+WEIGHT_THRESHOLD = 1.0e-7
 BIAS_THRESHOLD = 1e-6
 
 class ModelParameterProcessor:

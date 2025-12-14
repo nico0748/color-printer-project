@@ -1,4 +1,13 @@
 *.pdf
 *.dvi
+*.aux
+*.log
+*.out
+*.toc
+*.gz
 *.synctex.gz
 *.pptx
+*.png
+*.jpg
+*.jpeg
+*.ppm
