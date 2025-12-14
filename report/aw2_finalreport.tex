@@ -45,77 +45,267 @@ numbersep=1zw,  lineskip=-0.5ex
 \end{titlepage}
 \newpage
 \section{実験目的}
-本実験では、Arduinoを用いたカラーセンサによる色検出システムの精度を向上させることを目的としていた。
-そこで、センサから取得したRGB値を整形して、ニューラルネットワークに入力して、色検出の精度が向上するように、重み付けとバイアスを出力するようにした。
-ここで、より色検出の精度を向上させるために、ニューラルネットワークの隠れ層におけるユニット数を増やすことにした。隠れ層のユニット数を増やすことで、より複雑かつ多大なパターンを
-学習することができるようになり、色検出の精度が向上することが期待される。しかし、ユニット数の増加に伴って、使用するメモリ量は増加するため、
-Arduinoの実行メモリを超過をしてしまうことが明らかになった。
-本実験では、ニューラルネットワークの隠れ層のユニット数を増やしつつ、Arduinoの実行メモリを超過しないようにするために、重み付けとバイアスのデータを圧縮する方式を適用させる必要がある。
+本実験では, Arduinoを用いたカラーセンサによる色検出システムの精度を向上させることを目的とする.
+そこで, センサから取得したRGB値を整形して, ニューラルネットワークに入力して, 色検出の精度が向上するように, 重み付けとバイアスを出力させた.
+ここで, より色検出の精度を向上させるために, ニューラルネットワークの隠れ層における次元数を増やすことにした.隠れ層の次元数を増やすことで, より複雑かつ多大なパターンを
+学習することができるようになり, 色検出の精度が向上することが期待される.しかし, 次元数の増加に伴って, 使用するメモリ量は増加するため, 
+Arduinoの実行メモリを超過をしてしまうことが明らかになった.
+本実験では, ニューラルネットワークの隠れ層の次元数を増やしつつ, Arduinoの実行メモリを超過しないようにするために, 重み付けとバイアスのデータを圧縮する方式を適用させる.
 
 \section{実験の理論}
 \subsection{プルーニングと圧縮}
-L.1正規化の際に、0に近い閾値を設定し、出力された重みパラメータが閾値以下の場合、そのパラメータを0に置き換える。この操作をプルーニングとよぶ。
-そして、プルーニングによって、生成された疎行列（スパース行列）を用いて、非ゼロ要素のみを保持することによって、メモリの使用量を削減する。
-非ゼロ要素は、元々の行列における行のポインタと列のインデックス、値のペアで保存するCSR形式によって、影響を与える値を保持し、圧縮する。
-これは非ゼロ要素が減少するほど、有効性を発揮する。
+ある行列に対して, 0に近い閾値を設定し, 出力された重みパラメータが閾値以下の場合, そのパラメータを0に置き換える.この操作をプルーニングとよぶ.
+そして, プルーニングによって, 生成された疎行列（スパース行列）を用いて, 非ゼロ要素のみを保持することによって, メモリの使用量を削減する.
+非ゼロ要素は, 元々の行列における行のポインタと列のインデックス, 値のペアで保存するCSR形式によって, 影響を与える値を保持し, 圧縮する.
+これは非ゼロ要素が減少するほど, 有効性を発揮する.
+\subsection{プルーニングにおける閾値設定方法}
+プルーニングでは,重みおよびバイアスの絶対値が閾値以下である場合に,それらを 0 に置き換える処理を行う.
+本実験では,重みパラメータとバイアスパラメータに対して,異なる閾値を設定した.
+
+ニューラルネットワークにおいて,重みは入力信号の寄与度を直接制御するパラメータであるのに対し,
+バイアスは出力のオフセットを調整する役割を持つ.そのため,両者は学習後の値の分布および推論結果に与える影響が異なる.
+特に,バイアスは比較的小さな値であっても,出力全体に一様な影響を与えるため,
+重みと同一の閾値でプルーニングを行うと,推論精度が大きく低下する可能性がある.
+
+Song Hanらは,プルーニングを適用する際には,
+各パラメータの寄与度を考慮した削減が重要であることを示しており,
+一律の基準による削減は性能劣化を招く可能性があると述べている \cite{han2015learning}.
+また,Ian Goodfellow らは,バイアス項がニューラルネットワークの出力分布に
+直接影響を与える重要なパラメータであることを指摘している \cite{goodfellow2016deep}.
+
+以上を踏まえ,本研究では,
+学習後の重みおよびバイアスの絶対値分布をそれぞれ調査し,
+分布のスケールに応じて異なる閾値を設定した.
+具体的には,重みパラメータに対しては,
+L1正則化によって 0 付近に集中した小さな値を削減することを目的として,比較的大きな閾値を設定した.
+一方で,バイアスパラメータに対しては,推論結果への影響を考慮し,重みよりも十分に小さい閾値を設定した.
+
+このように,重みとバイアスで異なる閾値を設定することで,推論精度の低下を抑制しつつ,
+不要なパラメータのみを削減することが可能となり,プルーニングによる疎行列化および CSR 形式による圧縮の効果をより高めることができる.
+\subsubsection{重みづけ閾値の設定方針}
+本実験では,重みパラメータに対するプルーニング閾値を決定するため,複数の候補値に対して閾値スイープを行い,
+プルーニング後に残存するパラメータ数（compressed\_params）および削減率を比較した.
+表\ref{tab:weight-threshold-sweep}に,閾値スイープの結果を示す.
+\begin{table}[htbp]
+\centering
+\caption{重み閾値に対するプルーニング結果}
+\label{tab:weight-threshold-sweep}
+    \begin{tabular}{c|c|c|c}
+    \hline
+    重みの閾値 & 元のパラメータ数 & 圧縮後パラメータ数 & 削減率 [\%] \\
+    \hline
+    $1.0\times10^{-1}$ & 7043 & 319  & 95.47 \\
+    $1.0\times10^{-2}$ & 7043 & 377  & 94.65 \\
+    $9.0\times10^{-3}$ & 7043 & 381  & 94.59 \\
+    $8.0\times10^{-3}$ & 7043 & 382  & 94.58 \\
+    $7.0\times10^{-3}$ & 7043 & 383  & 94.56 \\
+    $6.0\times10^{-3}$ & 7043 & 404  & 94.26 \\
+    $5.0\times10^{-3}$ & 7043 & 407  & 94.22 \\
+    $4.0\times10^{-3}$ & 7043 & 498  & 92.93 \\
+    $3.0\times10^{-3}$ & 7043 & 758  & 89.24 \\
+    $2.0\times10^{-3}$ & 7043 & 1476 & 79.04 \\
+    $1.0\times10^{-3}$ & 7043 & 3557 & 49.50 \\
+    $1.0\times10^{-4}$ & 7043 & 6650 & 5.58 \\
+    $1.0\times10^{-5}$ & 7043 & 6994 & 0.70 \\
+    $1.0\times10^{-6}$ & 7043 & 7039 & 0.06 \\
+    $1.0\times10^{-7}$ & 7043 & 7041 & 0.03 \\
+    \hline
+    \end{tabular}
+\end{table}
+
+一般に,重みの絶対値に基づく magnitude-based pruning は,
+閾値を大きくするほど多くの重みが 0 に置換され,高い圧縮率が得られる一方で,
+過剰な削減は精度劣化を招く可能性がある \cite{han2015learning,zhu2017prune}.
+したがって,閾値は「メモリ削減の達成」と「過剰プルーニング回避」の
+トレードオフに基づき決定する必要がある.
+
+本実験の閾値スイープ結果では,閾値を $3.0\times10^{-3}$ から $2.0\times10^{-3}$ に変更した際に,
+残存パラメータ数が 758 から 1476 へと大きく増加し,
+削減率も 89.24\% から 79.04\% へと変化した。
+この際,閾値を $3.0\times10^{-3}$ から $2.0\times10^{-3}$ に変更しただけで,
+残存パラメータ数が 758 から 1476 へと約 2 倍に増加していることが分かる。
+このような急激な変化は,重みの絶対値分布が0付近に密集していることを示唆している。
+
+一般に,L1 正則化を適用したニューラルネットワークでは,多くの重みが 0 近傍に集中し,
+一部の重みのみが比較的大きな値を取る分布となることが知られている。
+そのため,プルーニング閾値がこの密集領域に入ると,閾値をわずかに変化させただけでも,
+残存パラメータ数が急激に変化する。
+
+本実験において,$3.0\times10^{-3}$ 以上の領域では,閾値が分布の裾に位置しており,
+比較的大きな重みまで削除されるため,削減率は高い一方で,モデル表現力に寄与するパラメータが急減しやすい
+「過剰プルーニング側」であると解釈できる。
+
+一方,$2.0\times10^{-3}$ 以下の領域では,閾値が重み分布の密集領域に入り,多くの小さな重みが保持されるため,
+モデル表現力は維持しやすいものの,圧縮効果が相対的に弱まりやすい「圧縮不足側」であると考えられる。
+
+以上より,$2.0\times10^{-3}$ は,
+圧縮不足に陥らない程度の削減率を確保しつつ,
+過剰プルーニング側へ入る境界（ひじ点）を避けられる折衷点であると判断した.
+そのため,本研究では重み閾値を $2.0\times10^{-3}$ と決定した.
+
+\subsubsection{バイアス閾値の設定方針}
+
+本実験では,プルーニングの際に,重みパラメータとバイアスパラメータに対して
+異なる閾値を設定した.重みパラメータの閾値は $2.0\times10^{-3}$ とした一方,
+バイアスパラメータの閾値は $1.0\times10^{-6}$ とした.
+
+ニューラルネットワークにおいて,重みは入力特徴量の寄与度を調整する役割を持つのに対し,
+バイアスは出力の基準値（オフセット）を決定する役割を担う.
+そのため,バイアスは比較的小さな値であっても,出力全体に一様な影響を与える可能性がある.
+このことから,重みと同一の基準でバイアスをプルーニングすると,推論結果に対して過度な影響を及ぼすおそれがある.
+
+Ian Goodfellow は,バイアス項がニューラルネットワークの
+出力分布に直接影響を与える重要なパラメータであることを指摘している\cite{goodfellow2016deep}.
+また,Han らのプルーニング手法においても,モデルの性能を維持するためには,寄与度の高いパラメータを慎重に扱う必要があることが示されている\cite{han2015learning}.
+
+以上を踏まえ,本研究では,
+バイアスに対するプルーニングの影響を最小限に抑えることを目的として,
+実質的に結果へ影響を与えない十分に小さな閾値$1.0\times10^{-6}$ を設定した.
+これにより,圧縮効果は主に重みパラメータに依存させ,バイアスによる推論結果の変動を抑制する設計とした.
+
+\subsection{疎行列とCSR形式}
+ニューラルネットワークの重み行列に対してプルーニングを適用すると,
+寄与の小さい重みが 0 に置き換えられ,行列は疎行列（Sparse Matrix）となる.
+疎行列とは,多くの要素が 0 で構成されている行列のことであり,
+このような行列を通常の密行列（Dense Matrix）として保持・計算すると,
+メモリ使用量および計算量の両面で非効率となる.
+
+疎行列を効率的に表現する手法として,
+CSR（Compressed Sparse Row）形式が広く用いられている.
+CSR形式では,疎行列を以下の3つの配列によって表現する.
+\begin{itemize}
+  \item 非ゼロ要素の値を格納する配列（value配列）
+  \item 非ゼロ要素の列番号を格納する配列（column index配列）
+  \item 各行が value配列のどこから始まるかを示す配列（row pointer配列）
+\end{itemize}
+この構造により,行単位での走査が可能となり,
+疎行列とベクトルの積演算を効率的に実行できる.
+
+ニューラルネットワークの重み行列を疎行列化する手法として,
+プルーニングは古くから研究されている.
+Han らは,学習済みニューラルネットワークに対して寄与の小さい重みを削除することで,
+推論精度をほとんど低下させることなく,
+モデルサイズおよびメモリ使用量を大幅に削減できることを示している \cite{han2015learning}.
+また,Saad は,CSR形式が疎行列の効率的な表現方法であり,
+疎行列とベクトルの積演算において高い計算効率を持つことを示している \cite{saad2003iterative}.
+
+これらの先行研究は主に CPU や GPU 上での大規模ニューラルネットワークを対象としているが,
+メモリ資源が極めて限定される組込み環境においても,
+疎行列化および圧縮表現の有効性は理論的に成立すると考えられる.
+特に Arduino のようなマイクロコントローラ環境では,
+実行時 RAM 使用量が実装可能なニューラルネットワークの規模を直接制限する要因となる.
+
+本実験では,プルーニングによって疎行列化された重み行列を
+CSR形式で保持し,さらに PROGMEM を用いてフラッシュメモリに格納することで,
+実行時に使用する RAM 量の削減を図った.
+これにより,従来は実行メモリ制約のため実装が困難であった
+隠れ層次元数の増加を可能とし,
+高次元ニューラルネットワークを Arduino 上で動作させることを目的とする.
+
+以上より,本実験では,既存研究で示されている疎行列化およびCSR形式の有効性を,
+メモリ制約の厳しい Arduino 環境において実証的に確認することを目指す.
+
+
 
 \section{実験方法}
-本実験では、メモリ圧縮方式を適用させることによって、ニューラルネットワークにおける隠れ層のユニット数を増やし、カラーセンサの色検出精度、すなわち取得した画像と取得元の画像間のMSE(平均二乗誤差)の向上が確認できれば、
-実験方法の有効性を確認できる。
+本実験では, メモリ圧縮方式を適用させることによって, ニューラルネットワークにおける隠れ層の次元数を増やし, カラーセンサの色検出精度, すなわち取得した画像と取得元の画像間のMSE(平均二乗誤差)の向上が確認できれば, 
+実験方法の有効性を確認できる.
 \subsection{実験手順}
-本実験では、プルーニングによるデータ圧縮方式を適用させたものと適用させていないもののMSEを比較する。
+本実験では, プルーニングによるデータ圧縮方式を適用させたものと適用させていないもののMSEを比較する.
+実験全体のフローチャートを図\ref{fig:experiment_flow}に示す.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.95\textwidth]{experimental-flowchart.png}
+    \caption{実験全体のフローチャート}
+    \label{fig:experiment_flow}
+\end{figure}
+\subsubsection{使用機材の準備}
+本実験では, 以下の機材を使用する.
+\begin{table}[htbp]
+  \centering
+  \caption{使用機材一覧}
+  \label{tab:ir_sensor_equipment}
+  \begin{tabular}{lll}
+    \hline
+    \textbf{機材・部品} & \textbf{型番／仕様} & \textbf{数量} \\
+    \hline
+    マイコンボード & Arduino Uno R4 WiFi & 1 \\
+    RGBフルカラーLED & OSTA5131A & 1 \\
+    照度センサ & NJL7302-F3 & 1 \\
+    タクトスイッチ & 6mm径 赤& 1 \\
+    タクトスイッチ & 6mm径 青& 1 \\
+    カーボン抵抗 & 1kΩ & 1 \\
+    カーボン抵抗 & 10kΩ & 1 \\
+    カーボン抵抗 & 330Ω & 1 \\
+    ブレッドボード & 830ポイント & 1 \\
+    ジャンパーワイヤー & 大中小の長さ & 21 \\
+    MacBook Air & M2チップ搭載 & 1 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\subsubsection{環境構築}
+本実験では, カラーセンサの色検出システムをArduino Uno R4 WiFiとフルカラーLED, 照度センサを用いて構築する.
+また, Arduino IDEを用いて, Arduino上で動作するプログラムを作成・書き込みを行う.
+本実験で作成した色検出システムの回路図を図\ref{fig:circuit_diagram}に示す.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.6\textwidth]{circuit_diagram.png}
+    \caption{カラーセンサの色検出システムの回路図}
+    \label{fig:circuit_diagram} 
+\end{figure}    
 \subsubsection{初期条件の準備}
-プルーニングによるデータ圧縮方式を適用させたケースと適用させていないケースのそれぞれのMSEを比較するので、初期条件となるmodel-parameter.hを同一のものを使用する必要がある。
-そのため、それぞれのケースで実験を行う際に、環境変数を学習済みのmodel-parameters.hを共通して使用する。また、プルーニングを実施する際に、閾値を設定する必要がある。
-今回は重みとバイアスのそれぞれに閾値を設定することができるようにしたので、2つの閾値を設定する。
+プルーニングによるデータ圧縮方式を適用させたケースと適用させていないケースのそれぞれのMSEを比較するので, 初期条件となるmodel-parameter.hを同一のものを使用する必要がある.
+そのため, それぞれのケースで実験を行う際に, 環境変数を学習済みのmodel-parameters.hを共通して使用する.また, プルーニングを実施する際に, 閾値を設定する必要がある.
+今回は重みとバイアスのそれぞれに閾値を設定することができるようにしたので, 2つの閾値を設定する.
 \subsubsection{カラーセンサを用いて測定}
-プルーニングによるデータ圧縮方式を適用させたケースと適用させていないケースのそれぞれで、$3\times3$ / $6\times6$の画像のRGB値を測定する。その際に、圧縮方式を適用させた方では、隠れ層のユニット数を80、
-適用させてない方では、ユニット数を40とする。また、ブルーミングによる圧縮方式を用いて測定する際に、隠れ層のユニット数を80に設定した状態で実行メモリ不足となった際は、閾値を再度設定する。
+プルーニングによるデータ圧縮方式を適用させたケースと適用させていないケースのそれぞれで, $3\times3$ / $6\times6$の画像のRGB値を測定する.その際に, 圧縮方式を適用させた方では, 隠れ層の次元数を80, 
+適用させてない方では, 次元数を40とする.また, ブルーミングによる圧縮方式を用いて測定する際に, 隠れ層の次元数を80に設定した状態で実行メモリ不足となった際は, 閾値を再度設定する.
 \subsubsection{測定後の重みとバイアスを生成}
-それぞれのケースで、測定して得られたRGB値のデータを$train-L1-normalization.ipynb$に入力して、測定値由来の$model-parameters.h$を生成する。
-プルーニングによるデータ圧縮方式を適用させたケースの方では、測定値由来の$model-parameters.h$をCSR形式に変換し、データ圧縮を行い、$model-parameters-csr.h$として出力する。
+それぞれのケースで, 測定して得られたRGB値のデータを$train-L1-normalization.ipynb$に入力して, 測定値由来の$model-parameters.h$を生成する.
+プルーニングによるデータ圧縮方式を適用させたケースの方では, 測定値由来の$model-parameters.h$をCSR形式に変換し, データ圧縮を行い, $model-parameters-csr.h$として出力する.
 \subsubsection{測定値由来のmodel-parameterを用いて測定}
-それぞれのケースで、測定値由来の$model-parameters-csr.h$, $model-parameters.h$を用いて、$3\times3$ / $6\times6$の画像のRGB値を測定する。その際に、圧縮方式を適用させた方では、隠れ層のユニット数を80、
-適用させてない方では、ユニット数を40とする。また、この際にメモリ使用量やpredict関数の実行時間を測定する。
+それぞれのケースで, 測定値由来の$model-parameters-csr.h$, $model-parameters.h$を用いて, $3\times3$ / $6\times6$の画像のRGB値を測定する.その際に, 圧縮方式を適用させた方では, 隠れ層の次元数を80, 
+適用させてない方では, 次元数を40とする.また, この際にメモリ使用量やpredict関数の実行時間を測定する.
 \subsubsection{測定値からPPMフォーマットの画像を生成}
-それぞれのケースで、測定した$3\times3$の画像のRGB値からPPMフォーマットの画像を生成する。
+それぞれのケースで, 測定した$3\times3$の画像のRGB値からPPMフォーマットの画像を生成する.
 \subsubsection{出力したPPMフォーマットの画像のMSEを算出・比較}
-それぞれのケースで、出力したPPMフォーマットの画像と取得元の画像間のMSEを算出する。ここで、プルーニングによるデータ圧縮方式を適用させたケースと適用させていないケースのMSEを比較し、
-本実験の有効性について定量的に評価する。
+それぞれのケースで, 出力したPPMフォーマットの画像と取得元の画像間のMSEを算出する.ここで, プルーニングによるデータ圧縮方式を適用させたケースと適用させていないケースのMSEを比較し, 
+本実験の有効性について定量的に評価する.
 \subsubsection{実験の有効性を総合的に評価}
-それぞれのケースで、測定したメモリ使用量・predict関数の実行速度・MSEから定量的に評価を行う。
-また、CSR形式への変換・隠れ層におけるユニット数の増加と実行の可否から定性的に評価を行う。
+それぞれのケースで, 測定したメモリ使用量・predict関数の実行速度・MSEから定量的に評価を行う.
+また, CSR形式への変換・隠れ層における次元数の増加と実行の可否から定性的に評価を行う.
 
 \subsection{プログラムの実装}
 \subsubsection{L1正規化による学習}
-既存の $train-L1-normalization.ipynb$ を使い、モデルを float型で学習する。L1正則化（重みの絶対値の和にペナルティ）により、多くの重みが小さくなり、プルーニングが効きやすくする。
-出力は$model-parameters.h$に出力する。ここでは、授業で配布されたプログラムをそのまま使用している。
+既存の $train-L1-normalization.ipynb$ を使い, モデルを float型で学習する.L1正則化（重みの絶対値の和にペナルティ）により, 多くの重みが小さくなり, プルーニングが効きやすくする.
+出力は$model-parameters.h$に出力する.ここでは, 授業で配布されたプログラムをそのまま使用している.
 
 \subsubsection{プルーニング}
-任意の閾値を設定して、その値以下の重みを 0 にすることで、元の重みとバイアス行列をスパース化する。
-閾値の設定方法は、絶対値ベースを基準として、重みの絶対値の分布を調査して、特定の小さな値($10^{-2}$)を閾値とする。最終的には「メモリ削減量」と「精度低下」をトレードオフして決める。\\
-次に、プルーニングのプログラムについて説明する。まず、はじめに、プルーニングを行うには閾値を用意しなければならないため、
-プログラム内で、重み付けとバイアスの閾値をそれぞれ、定数で宣言する。\\
+任意の閾値を設定して, その値以下の重みを 0 にすることで, 元の重みとバイアス行列をスパース化する.
+閾値の設定方法は, 絶対値ベースを基準として, 重みの絶対値の分布を調査して, 特定の小さな値($10^{-2}$)を閾値とする.最終的には「メモリ削減量」と「精度低下」をトレードオフして決める.\\
+次に, プルーニングのプログラムについて説明する.まず, はじめに, プルーニングを行うには閾値を用意しなければならないため, 
+プログラム内で, 重み付けとバイアスの閾値をそれぞれ, 定数で宣言する.\\
 \begin{lstlisting}[caption=閾値を定数として宣言,label=threshold]
 WEIGHT_THRESHOLD = 1.5e-3
 BIAS_THRESHOLD = 1e-6
 \end{lstlisting}
-宣言された閾値をModelPrameterProcessorクラス内で使用できるように、クラスのインスタンスを初期化する。\\
+宣言された閾値をModelPrameterProcessorクラス内で使用できるように, クラスのインスタンスを初期化する.\\
 \begin{lstlisting}[caption=ModelPrameterProcessorクラスのインスタンスを初期化するプログラム,label=initialize_instance]
 def __init__(self, weight_threshold: float = WEIGHT_THRESHOLD, bias_threshold: float = BIAS_THRESHOLD):
         self.weight_threshold = weight_threshold
         self.bias_threshold = bias_threshold
         self.arrays = {}
 \end{lstlisting}
-次に、CSR形式を適用する対象となるヘッダファイルのパラメータデータを取得し、float型配列から処理しやすいNumpy型配列に変換する。
-\begin{lstlisting}[caption=ヘッダファイルからfloat配列を取得し、Numpy配列に変換するプログラム,label=initialize_instance]
+次に, CSR形式を適用する対象となるヘッダファイルのパラメータデータを取得し, float型配列から処理しやすいNumpy型配列に変換する.
+\begin{lstlisting}[caption=ヘッダファイルからfloat配列を取得し、 Numpy配列に変換するプログラム,label=initialize_instance]
 def __init__(self, weight_threshold: float = WEIGHT_THRESHOLD, bias_threshold: float = BIAS_THRESHOLD):
         self.weight_threshold = weight_threshold
         self.bias_threshold = bias_threshold
         self.arrays = {}
 \end{lstlisting}
-Numpy型配列でパラメータを受け取った後は、元の重み付け配列とパラメータ名を引数として指定し、プルーニング後の配列を返すprune-weight関数を実行する。
-$pruned-weights[np.abs(pruned-weights) < threshold] = 0$
+Numpy型配列でパラメータを受け取った後は, 元の重み付け配列とパラメータ名を引数として指定し, プルーニング後の配列を返すprune-weight関数を実行する.
+$pruned-weights[np.abs(pruned-weights) < threshold] = 0$によって, 閾値以下のパラメータに0を代入している.\\
 \begin{lstlisting}[caption=重み付けパラメータに対するプルーニングのプログラム,label=weight_pruned]
 def prune_weights(self, weights: np.ndarray, name: str) -> np.ndarray:
     threshold = self.get_threshold_for_param(name)
@@ -125,48 +315,83 @@ def prune_weights(self, weights: np.ndarray, name: str) -> np.ndarray:
 \end{lstlisting}
 
 \subsubsection{CSR形式への変換}
-プルーニング後の重み行列とバイアス行列をCSR形式に変換する。PythonのSciPyライブラリとPytorchライブラリを使用して、Numpy配列からCSR形式に変換する。具体的には、SciPyの`scipy.sparse.csr-matrix`クラスを使用する。また、
-CSR形式のデータには、行ポインタ、列インデックス、値の3つの配列があり、値の配列のみをfloat32を維持して、行ポインタと列インデックスをuint8に変換することで、さらにメモリ使用量を削減する。
-図\ref{fig:csr}にCSR形式の例を示す。
+プルーニング後の重み行列とバイアス行列をCSR形式に変換する.PythonのSciPyライブラリとPytorchライブラリを使用して, Numpy配列からCSR形式に変換する.具体的には, SciPyの`scipy.sparse.csr-matrix`クラスを使用する.また, 
+CSR形式のデータには, 行ポインタ, 列インデックス, 値の3つの配列があり, 値の配列のみをfloat32を維持して, 行ポインタと列インデックスをuint8に変換することで, さらにメモリ使用量を削減する.
+図\ref{fig:csr}にCSR形式の例を示す.
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.95\textwidth]{Pruning+CSR.pdf}
+    \includegraphics[width=0.8\textwidth]{Pruning+CSR.pdf}
     \caption{CSR形式の変換手順}
     \label{fig:csr}
 \end{figure}
-\newpage
+
+次に, CSR形式への変換プログラムについて説明する.まず, dense-to-csr関数を定義し, 引数としてNumpy配列を受け取る.そして, 行列が1次元配列か2次元配列かを判定し, 1次元配列の場合は非ゼロ要素のインデックスと値を取得し, 
+行ポインタを作成する.2次元配列の場合は, 非ゼロ要素の行と列のインデックスと値を取得し, 行ポインタを作成する.最後に, CSR形式のデータを辞書型で返す.\\
+
+\begin{lstlisting}[caption=CSR形式への変換プログラム,label=csr_conversion]
+def dense_to_csr(self, matrix: np.ndarray) -> Dict[str, Any]:
+    if len(matrix.shape) == 1:
+        nonzero_indices = np.nonzero(matrix)[0]
+        values = matrix[nonzero_indices]
+        
+        return {
+            'values': values.astype(np.float32),
+            'indices': nonzero_indices.astype(np.int32),
+            'indptr': np.array([0, len(nonzero_indices)], dtype=np.int32),
+            'shape': matrix.shape,
+            'nnz': len(values),
+            'is_1d': True
+        }
+    else:
+        rows, cols = np.nonzero(matrix)
+        values = matrix[rows, cols]
+        
+        indptr = np.zeros(matrix.shape[0] + 1, dtype=np.int32)
+        for row in rows:
+            indptr[row + 1] += 1
+        indptr = np.cumsum(indptr)
+        
+        return {
+            'values': values.astype(np.float32),
+            'indices': cols.astype(np.int32),
+            'indptr': indptr,
+            'shape': matrix.shape,
+            'nnz': len(values),
+            'is_1d': False
+        }
+\end{lstlisting}
 \subsubsection{ヘッダファイルに自動変換}
-Pythonスクリプトで、すべてのレイヤの CSR配列とスケール、行サイズなどをCスタイルで出力します。PROGMEM を使って フラッシュメモリに配置することで、RAM（実行メモリ）の使用量を削減する。
+Pythonスクリプトで, すべてのレイヤの CSR配列とスケール, 行サイズなどをCスタイルで出力します.PROGMEM を使って フラッシュメモリに配置することで, RAM（実行メモリ）の使用量を削減する.
 
 \subsection{性能確認方法}
-%精度、メモリ使用量、処理速度など
+%精度, メモリ使用量, 処理速度など
 \subsubsection{精度の性能確認}
-プルーニングによる圧縮方式を適用させたケースと適用させていないケースで、色検出の精度を比較する。精度は、PPM形式の正解画像と検出結果画像のMSE（平均二乗誤差）によって評価する。
-判断基準は、元画像と学習後の検出画像のMSEを比較して、学習後の検出画像のMSEの方がより小さい値になっていれば、精度が向上したと判断する。
-異なる二つの画像間のMSEは以下の手順で計算する。\\
-画像間のMSEは各画素のRGB成分の差分を二乗して、その平均を取ることで求められる。
+プルーニングによる圧縮方式を適用させたケースと適用させていないケースで, 色検出の精度を比較する.精度は, PPM形式の正解画像と検出結果画像のMSE（平均二乗誤差）によって評価する.
+判断基準は, 元画像と学習後の検出画像のMSEを比較して, 学習後の検出画像のMSEの方がより小さい値になっていれば, 精度が向上したと判断する.
+異なる二つの画像間のMSEは以下の手順で計算する.\\
+画像間のMSEは各画素のRGB成分の差分を二乗して, その平均を取ることで求められる.
 \begin{enumerate}
-    \item まず、各画素 $(x, y)$ に対して、基準画像および比較画像のRGB値をそれぞれ取得する。
+    \item まず, 各画素 $(x, y)$ に対して, 基準画像および比較画像のRGB値をそれぞれ取得する.
     \begin{align}
         R_{xy}^{(\mathrm{ref})},\; G_{xy}^{(\mathrm{ref})},\; B_{xy}^{(\mathrm{ref})} &: \text{基準画像のRGB成分} \\
         R_{xy}^{(\mathrm{test})},\; G_{xy}^{(\mathrm{test})},\; B_{xy}^{(\mathrm{test})} &: \text{比較画像のRGB成分}
     \end{align}
 
-    \item 各画素ごとに、RGBの差分を計算する。
+    \item 各画素ごとに, RGBの差分を計算する.
     \begin{align}
         \Delta R_{xy} &= R_{xy}^{(\mathrm{ref})} - R_{xy}^{(\mathrm{test})} \\
         \Delta G_{xy} &= G_{xy}^{(\mathrm{ref})} - G_{xy}^{(\mathrm{test})} \\
         \Delta B_{xy} &= B_{xy}^{(\mathrm{ref})} - B_{xy}^{(\mathrm{test})}
     \end{align}
 
-    \item 次に、各画素におけるRGB誤差の二乗平均を求める。
+    \item 次に, 各画素におけるRGB誤差の二乗平均を求める.
     \begin{align}
         E_{xy} = \frac{(\Delta R_{xy})^2 + (\Delta G_{xy})^2 + (\Delta B_{xy})^2}{3}
     \end{align}
 
-    ここで、$E_{xy}$ は画素 $(x, y)$ におけるRGBの平均二乗誤差である。
+    ここで, $E_{xy}$ は画素 $(x, y)$ におけるRGBの平均二乗誤差である.
 
-    \item 最後に、全画素に対して $E_{xy}$ を平均し、画像全体のMSEとする。
+    \item 最後に, 全画素に対して $E_{xy}$ を平均し, 画像全体のMSEとする.
     \begin{align}
         \mathrm{MSE} 
         &= \frac{1}{W \times H} 
@@ -176,7 +401,7 @@ Pythonスクリプトで、すべてのレイヤの CSR配列とスケール、�
         \frac{(R_{xy}^{(\mathrm{ref})} - R_{xy}^{(\mathrm{test})})^2 + (G_{xy}^{(\mathrm{ref})} - G_{xy}^{(\mathrm{test})})^2 + (B_{xy}^{(\mathrm{ref})} - B_{xy}^{(\mathrm{test})})^2}{3}
     \end{align}
 
-    ここで，
+    ここで,
     \begin{itemize}
         \item $W$：画像の幅（ピクセル数）
         \item $H$：画像の高さ（ピクセル数）
@@ -184,20 +409,820 @@ Pythonスクリプトで、すべてのレイヤの CSR配列とスケール、�
 
 \end{enumerate}
 \subsubsection{メモリ使用量の性能確認}
-各実験ごとに、Aruduino実行メモリ使用量を計測し、プルーニングによる圧縮方式を適用させたケースと適用させていないケースで、メモリ使用量の差を比較する。測定方法は、Arduino IDEの「環境設定」で「コンパイル」の出力を詳細表示に設定し、コンパイル後に表示されるメッセージからフラッシュメモリ（プログラムコード）とRAM（変数など）の使用量を読み取ることで行う。
-元々のメモリ使用量では、隠れ層の数が60までしか対応できなかったので、プルーニングと圧縮を適用した結果、隠れ層の数を60層以上に増やしても、Aruduinoの実行メモリを超過しないことを確認できたら、メモリ使用量の削減に成功したと判断する。
-メモリ削減率は以下の式で計算する。\\
-\[
-\text{メモリ削減率} = \frac{\text{元のメモリ使用量} - \text{最適化後のメモリ使用量}}{\text{元のメモリ使用量}} \times 100\%
-\]
+各実験ごとに, Aruduino実行メモリ使用量を計測し, プルーニングによる圧縮方式を適用させたケースと適用させていないケースで, メモリ使用量の差を比較する.測定方法は, Arduino IDEの「環境設定」で「コンパイル」の出力を詳細表示に設定し, コンパイル後に表示されるメッセージからフラッシュメモリ（プログラムコード）とRAM（変数など）の使用量を読み取ることで行う.
+元々のメモリ使用量では, 隠れ層の数が60までしか対応できなかったので, プルーニングと圧縮を適用した結果, 隠れ層の次元数を60以上に増やしても, Aruduinoの実行メモリを超過しないことを確認できたら, メモリ使用量の削減に成功したと判断する.
+メモリ削減率は以下の式で計算する.\\
+\begin{align}
+    \text{メモリ削減率} = \frac{\text{元のメモリ使用量} - \text{最適化後のメモリ使用量}}{\text{元のメモリ使用量}} \times 100\%
+\end{align}
 \subsubsection{predict関数の実行速度}
-プログラム上でpredict関数の前後に実行時からの経過時間を測定するmillis()関数を追加し、2つのmillis関数の測定値の差分からpredict関数の実行時間を算出する。
-predict関数の実行時間は以下の式で計算する。\\
-\[
-\text{predict関数の実行時間} = \text{後に追加したmillis関数の測定値} - \text{前に追加したmillis関数の測定値}
-\]
+プログラム上でpredict関数の前後に実行時からの経過時間を測定するmicros()関数を追加し, 2つのmicros関数の測定値の差分からpredict関数の実行時間を算出する.
+predict関数の実行時間は以下の式で計算する.\\
+\begin{align}
+    \text{predict関数の実行時間} = \text{後に追加したmicros関数の測定値} - \text{前に追加したmicros関数の測定値}
+\end{align}
 
 \section{実験結果}
-\subsection{}
+\subsection{非圧縮方式の実験結果}
+表\ref{tab:non-compression}に非圧縮方式の実験結果を示す.
+\begin{table}[h]
+    \centering
+    \caption{非圧縮方式の実験結果}
+    \label{tab:non-compression}
+    \begin{tabular}{|c|c|c|c|c|}
+        \hline
+        NNの隠れ層の次元数 & フラッシュメモリ使用量 & SRAM使用量 & predict関数の実行時間  \\
+        \hline
+        40 & 67,508 bytes & 14,528 bytes & 443 \(\mu\)s \\
+        \hline
+    \end{tabular}
+\end{table}
 
+また, 非圧縮法方式のMSEの実験結果を表\ref{tab:non-compression-mse}に示す.
+\begin{table}[h]
+    \centering
+    \caption{非圧縮方式のMSEの実験結果}
+    \label{tab:non-compression-mse}
+    \begin{tabular}{|c|c||c|c|c|}
+        \hline
+        NNの隠れ層の次元数 & 試行回数 & 最小MSE & 最高MSE & 平均MSE \\
+        \hline
+        40 & 5 & 718.48 & 954.87 & 820.95 \\
+        \hline
+    \end{tabular}
+\end{table}
+非圧縮方式の試行回数とMSEの変化を図\ref{fig:non-compression-mse}に示す.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\textwidth]{NN40.png}
+    \caption{非圧縮方式の試行回数とMSEの変化}
+    \label{fig:non-compression-mse}
+\end{figure}
+
+\subsection{プルーニングによる圧縮方式の実験結果}
+表\ref{tab:pruning-compression}にプルーニングによる圧縮方式の実験結果を示す.
+\begin{table}[h]
+    \centering
+    \caption{プルーニングによる圧縮方式の実験結果}
+    \label{tab:pruning-compression}
+    \begin{tabular}{|c|c|c|c|c|}
+        \hline
+        NNの隠れ層の次元数 & フラッシュメモリ使用量 & SRAM使用量 & predict関数の実行時間  \\       
+        \hline
+        80 & 79,080 bytes & 6,836 bytes & 60,998 \(\mu\)s  \\
+        \hline
+    \end{tabular}
+\end{table}
+また, プルーニングによる圧縮方式のMSEの実験結果を表\ref{tab:pruning-compression-mse}に示す.
+\begin{table}[h]
+    \centering
+    \caption{プルーニングによる圧縮方式のMSEの実験結果}
+    \label{tab:pruning-compression-mse}
+    \begin{tabular}{|c|c||c|c|c|}
+        \hline
+        NNの隠れ層の次元数 & 試行回数 & 最小MSE & 最高MSE & 平均MSE \\
+        \hline
+        80 & 5 & 613.67 & 842.15 & 743.90 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+プルーニングによる圧縮方式の試行回数とMSEの変化を図\ref{fig:pruning-compression-mse}に示す.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\textwidth]{NN80.png}
+    \caption{プルーニングによる圧縮方式の試行回数とMSEの変化}
+    \label{fig:pruning-compression-mse}
+\end{figure}
+
+また, プルーニングの圧縮に関する結果を表\ref{tab:pruning-rate}に示す.
+\newpage
+\begin{table}[h]
+    \centering
+    \caption{次元数80におけるプルーニングによる圧縮率}
+    \label{tab:pruning-rate}
+    \begin{tabular}{|c|c|c|}
+        \hline
+        元のパラメータ数 & 圧縮後のパラメータ数 & 圧縮率 \\
+        \hline\hline
+        7043 & 2163 & 69.3\% \\
+        \hline
+    \end{tabular}
+\end{table}
+
+
+さらに, プルーニングによる圧縮によって, 隠れ層の次元層をどれほど増加させることができるかを次元数を40ずつ増加させて, 確認したところ, 
+以下の表\ref{tab:hidden-unit-comparison}のようになった.
+\begin{table}[h]
+    \centering
+    \caption{隠れ層次元数の増加に伴うコンパイル成功可否}
+    \label{tab:hidden-unit-comparison}
+    \begin{tabular}{c|c|c|c}
+        \hline
+        重みの閾値 & バイアスの閾値 & 隠れ層次元数 & コンパイル結果 \\
+        \hline\hline
+        $2.0\times10^{-3}$ & $1.0\times10^{-6}$ & 40  & ○ \\
+        \hline
+        $2.0\times10^{-3}$ & $1.0\times10^{-6}$ & 80  & ○ \\
+        \hline
+        $2.0\times10^{-3}$ & $1.0\times10^{-6}$ & 120 & ○ \\
+        \hline
+        $2.0\times10^{-3}$ & $1.0\times10^{-6}$ & 160 & ○ \\
+        \hline
+        $2.0\times10^{-3}$ & $1.0\times10^{-6}$ & 200 & ○ \\
+        \hline
+        $2.0\times10^{-3}$ & $1.0\times10^{-6}$ & $\cdots$ & ○ \\
+        \hline
+        $2.0\times10^{-3}$ & $1.0\times10^{-6}$ & 480 & ○ \\
+        \hline
+        $2.0\times10^{-3}$ & $1.0\times10^{-6}$ & 520 & ○ \\
+        \hline
+        $2.0\times10^{-3}$ & $1.0\times10^{-6}$ & 560 & × \\
+        \hline
+        $2.0\times10^{-3}$ & $1.0\times10^{-6}$ & 600 & × \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsubsection{非圧縮方式とプルーニングによる圧縮方式の比較結果}
+本実験では, プルーニングによる圧縮方式を適用させたことで, 隠れ層の次元数を80に増加させることができ, メモリ使用量を削減することができた.
+また, プルーニングによる圧縮方式を適用させたことで, 非圧縮方式と比較して, MSEが約14.6\%低減し, 色検出の精度が向上したことが確認できた.
+MSEの低減率は以下のように計算した.\\
+\begin{align}
+\text{MSE低減率} = \frac{718.48 - 613.67}{718.48} \times 100\% \approx 14.6\%
+\end{align}
+
+さらに, プルーニングによる圧縮方式を適用させたことで, SRAM使用量が約53.0\%削減され, メモリ使用量の削減に成功したことが確認できた.
+SRAM使用量の削減率は以下のように計算した.\\
+\begin{align}
+\text{SRAM使用量削減率} = \frac{14,528 - 6,836}{14,528} \times 100\% \approx 53.0\%
+\end{align}
+
+一方で, predict関数の実行時間は約137倍に増加し, 処理速度が大幅に低下したことが確認できた.
+predict関数の実行時間の増加率は以下のように計算した.\\
+\begin{align}
+\text{predict関数の実行時間増加率} = \frac{60,998 - 443}{443} \times 100\% \approx 13700\%
+\end{align}
+
+\section{考察}
+
+本実験では,プルーニンによる圧縮方式を適用することで,
+Arduino の実行メモリ制約下においても,
+ニューラルネットワークの隠れ層次元数を増加させることが可能であることを示した.
+その結果,非圧縮方式（隠れ層次元数 40）と比較して,
+圧縮方式（隠れ層次元数 80）では MSE が約 14.6\% 低減し,
+色検出精度の向上が確認された.
+これは,隠れ層次元数の増加によって,
+RGB 値と色空間の対応関係をより高次元で表現できたことが主な要因であると考えられる.
+
+一方で,プルーニングによる圧縮方式を適用した場合,
+predict 関数の実行時間が約 137 倍に増加するという結果が得られた.
+この処理時間の増加は,
+CSR 形式における疎行列演算が,
+密行列演算と比較して
+メモリアクセス回数の増加や条件分岐を伴うためであると考えられる.
+特に Arduino のようなマイクロコントローラ環境では,
+キャッシュ機構や並列演算資源が限られているため,
+疎行列演算のオーバーヘッドが顕著に現れた可能性が高い.
+
+この結果から,
+本実験で提案した圧縮方式は,
+「精度向上」と「メモリ削減」の観点では有効である一方,
+「処理速度」という観点では課題が残ることが明らかとなった.
+したがって,
+本方式はリアルタイム性が厳しく要求されない用途,
+あるいは推論回数が限定される用途において,
+特に有効であると考えられる.
+
+さらなる性能向上に向けた改善案として,
+以下の点が考えられる.
+まず,CSR 形式のまま推論を行うのではなく,
+演算頻度の高いレイヤのみを部分的に密行列として保持する
+ハイブリッド表現の導入が考えられる.
+また,現在は float32 を用いて演算を行っているが,
+量子化（int8 あるいは int16）を併用することで,
+演算速度およびメモリ使用量のさらなる削減が期待できる.
+
+加えて,
+プルーニングの閾値を固定値とするのではなく,レイヤごとに異なる閾値を設定する手法や,
+重み分布に基づいて自動的に閾値を決定する手法を導入することで,
+精度と圧縮率のトレードオフをより柔軟に制御できる可能性がある.
+これらの手法を組み合わせることで,組込み環境におけるニューラルネットワークの実用性はさらに向上すると考えられる.
+
+\section{終わりに}
+
+本研究では,
+Arduino を用いたカラーセンサによる色検出システムに対して,
+ニューラルネットワークの隠れ層次元数を増加させつつ,
+実行メモリ制約を満たすための手法として,
+プルーニングおよび CSR 形式による圧縮方式を適用した.
+
+その結果,非圧縮方式では実装が困難であった隠れ層次元数 80 のニューラルネットワークを,
+Arduino上で動作させることに成功した.
+さらに,圧縮方式を適用したモデルでは,MSE の低減による色検出精度の向上と,
+SRAM 使用量の大幅な削減を同時に達成できることを示した.これらの結果から,
+疎行列化および圧縮表現は,メモリ資源が限られた組込み環境においても
+有効な手法であることが実証されたと言える.
+
+一方で,疎行列演算に起因する処理時間の増加という課題も明らかとなった.
+このことから,本実験で提案した手法は,すべての用途に適用可能であるわけではなく,
+用途や要求仕様に応じた設計判断が重要であることが示唆される.
+
+今後は,密行列に部分的に疎行列を組み合わせたハイブリッド構造や,
+量子化手法との併用,さらにはレイヤ単位での適応的プルーニング手法の導入を検討することで,
+精度・メモリ使用量・処理速度のバランスをより高い次元で最適化することが期待される.
+本実験は,組込み環境におけるニューラルネットワーク実装の可能性を広げる
+一つの指針を示すものである.
+
+\begin{thebibliography}{99}
+
+\bibitem{han2015learning}
+S. Han, J. Pool, J. Tran, and W. Dally,
+``Learning both weights and connections for efficient neural networks,''
+\textit{Advances in Neural Information Processing Systems},
+Vol. 28, pp. 1135--1143, 2015.
+
+
+\bibitem{zhu2017prune}
+M. Zhu and S. Gupta,
+``To prune, or not to prune: exploring the efficacy of pruning for model compression,''
+arXiv:1710.01878, 2017.
+
+\bibitem{goodfellow2016deep}
+I. Goodfellow, Y. Bengio, and A. Courville,
+``Deep Learning,''
+MIT Press, 2016.
+
+\bibitem{saad2003iterative}
+Y. Saad,
+``Iterative Methods for Sparse Linear Systems,''
+SIAM, 2003.
+
+\end{thebibliography}
+
+\section{付録}
+\subsection{プルーニングとCSR形式への変換プログラム}
+プルーニングとCSR形式への変換プログラムの全体コードを以下に示す.
+\begin{lstlisting}[caption=convertCSR.py,label=convert_csr]
+import numpy as np
+import re
+from typing import Dict, Any
+
+# 閾値設定
+WEIGHT_THRESHOLD = 1.0e-7
+BIAS_THRESHOLD = 1e-6
+
+class ModelParameterProcessor:
+    def __init__(self, weight_threshold: float = WEIGHT_THRESHOLD, bias_threshold: float = BIAS_THRESHOLD):
+        self.weight_threshold = weight_threshold
+        self.bias_threshold = bias_threshold
+        self.arrays = {}
+        
+    def get_threshold_for_param(self, param_name: str) -> float:
+        return self.bias_threshold if 'bias' in param_name else self.weight_threshold
+    
+    def parse_model_parameters(self, file_path: str) -> Dict[str, np.ndarray]:
+        with open(file_path, 'r') as f:
+            content = f.read()
+        
+        pattern = r'float\s+(\w+)\[\]\s*=\s*\{([^}]+)\};'
+        matches = re.findall(pattern, content)
+        
+        arrays = {}
+        for name, values_str in matches:
+            numbers = re.findall(r'-?[\d.]+(?:[eE][-+]?\d+)?', values_str)
+            values = [float(num_str) for num_str in numbers]
+            arrays[name] = np.array(values, dtype=np.float32)
+        
+        self.arrays = arrays
+        return arrays
+    
+    def detect_network_structure(self) -> list:
+        sizes = {name: len(array) for name, array in self.arrays.items()}
+        bias_sizes = {name: size for name, size in sizes.items() if 'bias' in name}
+        network_structure = []
+        
+        if 'weight_1' in sizes and 'bias_1' in sizes:
+            network_structure.append(('weight_1', 3, bias_sizes['bias_1']))
+            network_structure.append(('bias_1', bias_sizes['bias_1'], 1))
+        
+        if 'weight_2' in sizes and 'bias_2' in sizes:
+            network_structure.append(('weight_2', bias_sizes['bias_1'], bias_sizes['bias_2']))
+            network_structure.append(('bias_2', bias_sizes['bias_2'], 1))
+        
+        if 'weight_3' in sizes and 'bias_3' in sizes:
+            network_structure.append(('weight_3', bias_sizes['bias_2'], bias_sizes['bias_3']))
+            network_structure.append(('bias_3', bias_sizes['bias_3'], 1))
+        
+        return network_structure
+    
+    def prune_weights(self, weights: np.ndarray, name: str) -> np.ndarray:
+        threshold = self.get_threshold_for_param(name)
+        pruned_weights = weights.copy()
+        pruned_weights[np.abs(pruned_weights) < threshold] = 0
+        return pruned_weights
+    
+    def dense_to_csr(self, matrix: np.ndarray) -> Dict[str, Any]:
+        if len(matrix.shape) == 1:
+            nonzero_indices = np.nonzero(matrix)[0]
+            values = matrix[nonzero_indices]
+            
+            return {
+                'values': values.astype(np.float32),
+                'indices': nonzero_indices.astype(np.int32),
+                'indptr': np.array([0, len(nonzero_indices)], dtype=np.int32),
+                'shape': matrix.shape,
+                'nnz': len(values),
+                'is_1d': True
+            }
+        else:
+            rows, cols = np.nonzero(matrix)
+            values = matrix[rows, cols]
+            
+            indptr = np.zeros(matrix.shape[0] + 1, dtype=np.int32)
+            for row in rows:
+                indptr[row + 1] += 1
+            indptr = np.cumsum(indptr)
+            
+            return {
+                'values': values.astype(np.float32),
+                'indices': cols.astype(np.int32),
+                'indptr': indptr,
+                'shape': matrix.shape,
+                'nnz': len(values),
+                'is_1d': False
+            }
+    
+    def process_all_layers(self) -> Dict[str, Dict[str, Any]]:
+        network_structure = self.detect_network_structure()
+        processed_layers = {}
+        
+        for param_name, input_size, output_size in network_structure:
+            if param_name not in self.arrays:
+                continue
+            
+            original_array = self.arrays[param_name]
+            pruned_array = self.prune_weights(original_array, param_name)
+            
+            if 'weight' in param_name:
+                matrix = pruned_array.reshape(output_size, input_size)
+            else:
+                matrix = pruned_array
+            
+            csr_data = self.dense_to_csr(matrix)
+            compression_ratio = (1 - csr_data['nnz'] / len(original_array)) * 100
+            
+            processed_layers[param_name] = {
+                'original_size': len(original_array),
+                'csr_data': csr_data,
+                'compression_ratio': compression_ratio
+            }
+        
+        return processed_layers
+    
+    def generate_csr_header(self, processed_layers: Dict[str, Dict[str, Any]]) -> str:
+        header_content = f"""// CSR Neural Network Parameters
+// Weight threshold: {self.weight_threshold}, Bias threshold: {self.bias_threshold}
+#ifndef MODEL_PARAMETERS_CSR_H
+#define MODEL_PARAMETERS_CSR_H
+
+#include <stdint.h>
+#ifdef ARDUINO
+#include <avr/pgmspace.h>
+#define CSR_PROGMEM PROGMEM
+#else
+#define CSR_PROGMEM
+#endif
+
+"""
+
+        for param_name, layer_info in processed_layers.items():
+            csr = layer_info['csr_data']
+            
+            # values
+            header_content += f"const float {param_name}_values[] CSR_PROGMEM = {{"
+            for i, val in enumerate(csr['values']):
+                if i % 8 == 0:
+                    header_content += "\n    "
+                header_content += f"{val:.8f}f"
+                if i < len(csr['values']) - 1:
+                    header_content += ", "
+            header_content += "\n};\n\n"
+            
+            # indices
+            header_content += f"const int32_t {param_name}_indices[] CSR_PROGMEM = {{"
+            for i, idx in enumerate(csr['indices']):
+                if i % 12 == 0:
+                    header_content += "\n    "
+                header_content += f"{idx}"
+                if i < len(csr['indices']) - 1:
+                    header_content += ", "
+            header_content += "\n};\n\n"
+            
+            # indptr (2D only)
+            if not csr['is_1d']:
+                header_content += f"const int32_t {param_name}_indptr[] CSR_PROGMEM = {{"
+                for i, ptr in enumerate(csr['indptr']):
+                    if i % 12 == 0:
+                        header_content += "\n    "
+                    header_content += f"{ptr}"
+                    if i < len(csr['indptr']) - 1:
+                        header_content += ", "
+                header_content += "\n};\n\n"
+
+        header_content += """typedef struct {
+    const float* values;
+    const int32_t* indices;
+    const int32_t* indptr;
+    int32_t nnz;
+    int32_t rows;
+    int32_t cols;
+} csr_matrix_t;
+
+typedef struct {
+    const float* values;
+    const int32_t* indices;
+    int32_t nnz;
+    int32_t size;
+} csr_vector_t;
+
+"""
+
+        for param_name, layer_info in processed_layers.items():
+            csr = layer_info['csr_data']
+            
+            if csr['is_1d']:
+                header_content += f"""const csr_vector_t {param_name}_csr = {{
+    {param_name}_values, {param_name}_indices, {csr['nnz']}, {csr['shape'][0]}
+}};
+
+"""
+            else:
+                header_content += f"""const csr_matrix_t {param_name}_csr = {{
+    {param_name}_values, {param_name}_indices, {param_name}_indptr,
+    {csr['nnz']}, {csr['shape'][0]}, {csr['shape'][1]}
+}};
+
+"""
+
+        header_content += """#ifdef ARDUINO
+#define READ_PROGMEM_FLOAT(addr) pgm_read_float(addr)
+#define READ_PROGMEM_DWORD(addr) pgm_read_dword(addr)
+#else
+#define READ_PROGMEM_FLOAT(addr) (*(addr))
+#define READ_PROGMEM_DWORD(addr) (*(addr))
+#endif
+
+static inline float get_csr_weight(const csr_matrix_t* csr, int row, int col) {
+    int32_t start = READ_PROGMEM_DWORD(&csr->indptr[row]);
+    int32_t end = READ_PROGMEM_DWORD(&csr->indptr[row + 1]);
+    for (int32_t i = start; i < end; i++) {
+        if (READ_PROGMEM_DWORD(&csr->indices[i]) == col) {
+            return READ_PROGMEM_FLOAT(&csr->values[i]);
+        }
+    }
+    return 0.0f;
+}
+
+static inline float get_csr_bias(const csr_vector_t* csr, int index) {
+    for (int32_t i = 0; i < csr->nnz; i++) {
+        if (READ_PROGMEM_DWORD(&csr->indices[i]) == index) {
+            return READ_PROGMEM_FLOAT(&csr->values[i]);
+        }
+    }
+    return 0.0f;
+}
+
+#endif // MODEL_PARAMETERS_CSR_H
+"""
+        
+        return header_content
+
+def main():
+    processor = ModelParameterProcessor()
+    
+    try:
+        processor.parse_model_parameters("model_parameters.h")
+        processed_layers = processor.process_all_layers()
+        
+        header_content = processor.generate_csr_header(processed_layers)
+        with open("model_parameters_csr.h", "w") as f:
+            f.write(header_content)
+        
+        total_original = sum(layer['original_size'] for layer in processed_layers.values())
+        total_compressed = sum(layer['csr_data']['nnz'] for layer in processed_layers.values())
+        compression_ratio = (1 - total_compressed / total_original) * 100
+        
+        print(f"✓ Conversion completed")
+        print(f"  Original: {total_original} params")
+        print(f"  Compressed: {total_compressed} params ({compression_ratio:.1f}% reduction)")
+        print(f"  Output: model_parameters_csr.h")
+        
+    except FileNotFoundError:
+        print("✗ Error: model_parameters.h not found")
+    except Exception as e:
+        print(f"✗ Error: {e}")
+
+if __name__ == "__main__":
+    main()
+
+\end{lstlisting}
+
+\subsection{CSR形式に対応したINOファイル}
+CSR形式に対応したINOファイルの全体コードを以下に示す.
+\begin{lstlisting}[caption=newScanner.ino,label=csr_color_detection_ino]
+#include <Arduino.h>
+#include "./model_parameters_csr.h"  // CSR形式のパラメータを使用
+
+// RGB点灯遅延
+#define RgbFlashDelay 10 
+
+// ピン割り当て
+#define PIN_IN A0
+#define led_r_pin 8
+#define led_g_pin 6
+#define led_b_pin 7
+#define buttonInputPin 3
+#define buttonMinMaxPin 2
+
+//ニューラルネットワーク関連（実際の構造に合わせて修正）
+#define INPUT_SIZE 3
+#define HIDDEN_SIZE1 80  // 実際の値に修正
+#define HIDDEN_SIZE2 80  // 実際の値に修正
+#define OUTPUT_SIZE 3
+
+// ボタン押下を検知する変数 (余計な最適化を防ぐため、volatile宣言をしている)
+volatile bool buttonInputPressed = false;
+volatile bool buttonMinMaxPressed = false;
+
+// RGB読み取り用変数
+float r=0, g=0, b=0;
+float r_max=512, g_max=512, b_max=512;
+float r_min=0, g_min=0, b_min=0;
+
+float rgb[3]{0, 0, 0};
+float RGBInput[3]{0, 0, 0};
+float RGBOutput[3]{0, 0, 0};
+
+// RGBデータメモリ
+int N, M;
+float **array;
+int n=0, m=0;
+
+int pushed = 0;
+
+void buttonInput() {
+    buttonInputPressed = true;
+}
+
+
+void buttonMinMax() {
+    buttonMinMaxPressed = true;
+}
+
+
+float **allocateArray(int N, int M) {
+    float **array = (float **)malloc(N * sizeof(float *)); // 行ポインタの確保
+    if (array == NULL) {
+        Serial.println("メモリ確保失敗");
+        return NULL;
+    }
+
+    for (int i = 0; i < N; i++) {
+        array[i] = (float *)malloc(M * sizeof(float)); // 各行のメモリ確保
+        if (array[i] == NULL) {
+            Serial.println("メモリ確保失敗（部分的）");
+            // 確保済みのメモリを解放して終了
+            for (int j = 0; j < i; j++) {
+                free(array[j]);
+            }
+            free(array);
+            return NULL;
+        }
+    }
+    return array;
+}
+
+void read(){
+    for(int count = 0 ; count < 3 ; count++){
+        if(count == 0){
+            analogWrite(led_r_pin, 255);
+            analogWrite(led_g_pin,   0);
+            analogWrite(led_b_pin,   0);
+            delay(RgbFlashDelay);
+            rgb[0] = analogRead(PIN_IN);
+        }else if(count == 1){
+            analogWrite(led_r_pin,   0);
+            analogWrite(led_g_pin, 255); 
+            analogWrite(led_b_pin,   0);
+            delay(RgbFlashDelay);
+            rgb[1] = analogRead(PIN_IN);
+        }else{
+            analogWrite(led_r_pin,   0);
+            analogWrite(led_g_pin,   0);
+            analogWrite(led_b_pin, 255);
+            delay(RgbFlashDelay);     
+            rgb[2] = analogRead(PIN_IN);
+        }
+    }
+    analogWrite(led_r_pin, 0);
+    analogWrite(led_g_pin, 0);
+    analogWrite(led_b_pin, 0);
+}
+
+
+//Arduino's analog input detects 0-5V with 10-bit values
+//https://deviceplus.jp/arduino/arduino_f07/
+void readAndProcess(){
+    read();
+    RGBInput[0] = (float(rgb[0])-r_min)/r_max;
+    RGBInput[1] = (float(rgb[1])-g_min)/g_max;
+    RGBInput[2] = (float(rgb[2])-b_min)/b_max;
+    
+    // Monitoring read value
+     //Serial.print("Measured B, R, G: ");
+     //Serial.println(String(RGBInput[2])+","+String(RGBInput[0])+","+String(RGBInput[1]));    
+
+    // ニューラルネットで読み込み値を修正
+    float a = micros();
+    predict(RGBInput, RGBOutput);
+    float b = micros();
+    float time = b - a;
+    Serial.println(time);
+    // predict();が存在しない初期は、値を単純に同値をコピー
+    // RGBOutput[0] = RGBInput[0];
+    // RGBOutput[1] = RGBInput[1];
+    // RGBOutput[2] = RGBInput[2];
+
+    // 0-255でクリッピング
+    RGBOutput[0] = min(max(RGBOutput[0]*255, 0), 255);
+    RGBOutput[1] = min(max(RGBOutput[1]*255, 0), 255);
+    RGBOutput[2] = min(max(RGBOutput[2]*255, 0), 255);
+
+    Serial.print("Predicted B, R, G: ");
+    Serial.println("Blue:"+String((int)RGBOutput[2]) + ", Red:"+String((int)RGBOutput[0]) + ", Green:"+ String((int)RGBOutput[1]));
+    Serial.println("Red:"+String(RGBInput[0]) + ", Green:"+ String(RGBInput[1]) + ", Blue:"+String(RGBInput[2]));
+}
+
+float relu(float x) {
+    if (x < 0) return 0;
+    return x;
+}
+
+void predict(float input[INPUT_SIZE], float output[OUTPUT_SIZE]) {
+    float layer1[HIDDEN_SIZE1] = {0};
+    float layer2[HIDDEN_SIZE2] = {0};
+    
+    // **Layer 1 計算 (CSR形式)**
+    for (int i = 0; i < HIDDEN_SIZE1; i++) {
+        // バイアスを取得
+        layer1[i] = get_csr_bias(&bias_1_csr, i);
+        
+        // 重みとの積和演算
+        for (int j = 0; j < INPUT_SIZE; j++) {
+            float weight = get_csr_weight(&weight_1_csr, i, j);
+            layer1[i] += weight * input[j];
+        }
+        layer1[i] = relu(layer1[i]); // ReLU
+    }
+    
+    // **Layer 2 計算 (CSR形式)**
+    for (int i = 0; i < HIDDEN_SIZE2; i++) {
+        // バイアスを取得
+        layer2[i] = get_csr_bias(&bias_2_csr, i);
+        
+        // 重みとの積和演算
+        for (int j = 0; j < HIDDEN_SIZE1; j++) {
+            float weight = get_csr_weight(&weight_2_csr, i, j);
+            layer2[i] += weight * layer1[j];
+        }
+        layer2[i] = relu(layer2[i]); // ReLU
+    }
+    
+    // **Layer 3（出力層）計算 (CSR形式)**
+    for (int i = 0; i < OUTPUT_SIZE; i++) {
+        // バイアスを取得
+        output[i] = get_csr_bias(&bias_3_csr, i);
+        
+        // 重みとの積和演算
+        for (int j = 0; j < HIDDEN_SIZE2; j++) {
+            float weight = get_csr_weight(&weight_3_csr, i, j);
+            output[i] += weight * layer2[j];
+        }
+        // 出力層はReLUを適用しない（回帰問題のため）
+    }
+}
+
+
+
+void setup() {
+  // put your setup code here, to run once:
+    Serial.begin(9600);
+    pinMode(led_r_pin, OUTPUT);
+    pinMode(led_g_pin, OUTPUT);
+    pinMode(led_b_pin, OUTPUT);
+    analogWrite(led_r_pin, 0);
+    analogWrite(led_b_pin, 0);
+    analogWrite(led_g_pin, 0);
+
+    pinMode(buttonInputPin, INPUT_PULLUP);
+    pinMode(buttonMinMaxPin, INPUT_PULLUP);
+
+    attachInterrupt(digitalPinToInterrupt(buttonInputPin), buttonInput, FALLING);
+    attachInterrupt(digitalPinToInterrupt(buttonMinMaxPin), buttonMinMax, FALLING);
+
+    Serial.println("画像の Height（行数）を入力してください: ");
+    while (Serial.available() == 0) {
+        // 何もせずに待機
+    }
+    N = Serial.parseInt();
+    M = N*3; // RGBの値を入れるために3倍しておく
+    Serial.println("Height: " + String(N));
+    Serial.println("Width: " + String((int)(M/3)));
+    array = allocateArray(N, M);
+
+    if (array == NULL) {
+        Serial.println("配列の確保に失敗");
+        return;
+    }
+
+    // 配列を初期化
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < M; j++) {
+            array[i][j] = 0;
+        }
+    }
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+    readAndProcess();
+
+    if (buttonInputPressed) {
+        array[n][m]   = RGBOutput[0];
+        array[n][m+1] = RGBOutput[1];
+        array[n][m+2] = RGBOutput[2];
+
+        Serial.println(String(n)+" 行目 "+String((int)(m/3))+" 列目 の画素を読み込みました。");
+
+        if((m+=3)>=M){
+            m = 0 ;
+            if((n+=1)>=N){
+                n = 0;
+                Serial.println("画像の読み取りが完了しました。");
+                Serial.println("以下のテキストを画像ファイル（.ppm）に貼り付けてください。");
+                Serial.println("--------------------------------------------------");
+                Serial.println("P3");
+                Serial.println(String(N)+" "+String((int)(M/3)));
+                Serial.println("255");
+                for (int i = 0; i < N; i++) {
+                    for (int j = 0; j < M; j++) {
+                        Serial.print((int)array[i][j]);
+                        Serial.print(" ");
+                    }
+                    Serial.println();
+                }
+                Serial.println("--------------------------------------------------");
+                Serial.println("RGBの範囲を0.0~1.0に直したもの.");
+                //RBGRGBRGB 0~8
+                for (int i = 0; i < N; i++) {
+                    int forrgb = 0;
+                    for (int j = 0; j < M; j++) {
+                        if(forrgb == 0) Serial.print("[");
+                        Serial.print((double)array[i][j]/255);
+                        Serial.print(", ");
+                        //2 ,5, 8
+                        if( forrgb == 2 ) {
+                            Serial.println("],");
+                            forrgb = 0;
+                        }else forrgb += 1;
+                    }
+                }
+                Serial.println();
+
+                delay(500); 
+                //softwareReset();
+                NVIC_SystemReset();
+            } 
+        }
+        buttonInputPressed = false;
+    }
+
+    if (buttonMinMaxPressed) {
+        if(pushed%2==0){
+            r_min=rgb[0], g_min=rgb[1], b_min=rgb[2];
+            Serial.println("最小値が更新されました："+String(b_min)+","+String(r_min)+","+String(g_min));
+        }
+        else{
+            r_max=rgb[0]-r_min, g_max=rgb[1]-g_min, b_max=rgb[2]-b_min;
+            Serial.println("最大値が更新されました："+String(b_max)+","+String(r_max)+","+String(g_max));
+        }
+        buttonMinMaxPressed = false;  // フラグをリセット
+        pushed++;
+        delay(500);
+    }
+}
+
+\end{lstlisting}
 \end{document}
+
